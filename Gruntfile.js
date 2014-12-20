@@ -1,4 +1,4 @@
-// Generated on 2014-12-13 using generator-angular-fullstack 2.0.13
+// Generated on 2014-12-14 using generator-angular-fullstack 2.0.13
 'use strict';
 
 module.exports = function (grunt) {
@@ -93,7 +93,7 @@ module.exports = function (grunt) {
           '<%= yeoman.client %>/assets/images/{,*//*}*.{png,jpg,jpeg,gif,webp,svg}'
         ],
         options: {
-          livereload: true
+          livereload: 6778
         }
       },
       express: {
@@ -102,7 +102,7 @@ module.exports = function (grunt) {
         ],
         tasks: ['express:dev', 'wait'],
         options: {
-          livereload: true,
+          livereload: 6778,
           nospawn: true //Without this option specified express won't be reloaded
         }
       }
@@ -207,6 +207,16 @@ module.exports = function (grunt) {
         }
       }
     },
+
+    // Automatically inject Bower components into the app
+    wiredep: {
+      target: {
+        src: '<%= yeoman.client %>/index.html',
+        ignorePath: '<%= yeoman.client %>/',
+        exclude: [/bootstrap-sass-official/, /bootstrap.js/, '/json3/', '/es5-shim/']
+      }
+    },
+
     // Renames files for browser caching purposes
     rev: {
       dist: {
@@ -290,7 +300,7 @@ module.exports = function (grunt) {
     ngtemplates: {
       options: {
         // This should be the name of your apps angular module
-        module: 'gitmasServerApp',
+        module: 'testApp',
         htmlmin: {
           collapseBooleanAttributes: true,
           collapseWhitespace: true,
@@ -512,6 +522,7 @@ module.exports = function (grunt) {
         'env:all',
         'concurrent:server',
         'injector',
+        'wiredep',
         'autoprefixer',
         'concurrent:debug'
       ]);
@@ -522,6 +533,7 @@ module.exports = function (grunt) {
       'env:all',
       'concurrent:server',
       'injector',
+      'wiredep',
       'autoprefixer',
       'express:dev',
       'wait',
@@ -579,6 +591,7 @@ module.exports = function (grunt) {
     'clean:dist',
     'concurrent:dist',
     'injector',
+    'wiredep',
     'useminPrepare',
     'autoprefixer',
     'ngtemplates',
