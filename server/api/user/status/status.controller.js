@@ -26,10 +26,10 @@ exports.index = function(req, res) {
         if(error) {
           return res.status(500).jsonp({message: 'Issue retreiving job status.'});
         }
-        return res.jsonp({job: job});
+        return res.jsonp({progress: job.progress()});
       });
     } else {
-      return res.jsonp({job: job});
+      return res.jsonp({progress: job.progress()});
     }
   });
 };

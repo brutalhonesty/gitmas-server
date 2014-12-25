@@ -1,0 +1,17 @@
+'use strict';
+
+// Development specific configuration
+// ==================================
+module.exports = {
+  firebase: {
+    url: '' // https://<my app name>.firebaseio.com/
+  },
+  autho: { // https://app.auth0.com/#/applications/<client id>/settings
+    clientSecret: '',
+    clientId: ''
+  },
+  github: { // https://github.com/settings/applications
+    clientId: '',
+    clientSecret: ''
+  }
+};

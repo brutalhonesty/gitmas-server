@@ -6,7 +6,10 @@ var ranker = require('./ranker');
 var async = require('async');
 var GitHubApi = require("github");
 var github = new GitHubApi({
-    version: "3.0.0"
+    version: "3.0.0",
+    headers: {
+      'User-Agent': 'Gitmas-Server/v0.1'
+    }
 });
 var config = require('../../../config/environment');
 var ref = new Firebase(config.firebase.url);
@@ -20,53 +23,71 @@ function _getRepos (callback) {
     if(error) {
       return callback(error);
     }
-    var repoNames = data.map(function (repo) {
-      return repo.name;
+    var repos = data.map(function (repo) {
+      return {name: repo.name, language: repo.language};
     });
-    return callback(null, repoNames);
+    return callback(null, repos);
   });
 }
 
-function _getCommitMessages (job, repoNames, cb) {
+function _getCommitMessages (job, repos, cb) {
   var commitMessages = [];
   var count = 0;
-  async.eachSeries(repoNames, function(item, callback) {
+  async.eachLimit(repos, 10, function(item, callback) {
     github.repos.getCommits({
       user: job.data.username,
-      repo: item
+      repo: item.name
     }, function (error, commitData) {
       if(error) {
         return cb(error);
       }
       count++;
       console.log('Called!');
-      job.log('Extracting commits for repo %s', item);
-      job.progress(count, repoNames.length);
-      for (var i = 0; i < commitData.length; i++) {
-        var commit = commitData[i];
+      job.log('Extracting commits for repo %s', item.name);
+      job.progress(count, repos.length);
+      async.eachLimit(commitData, 10, function (commit, callbk) {
         if(commit.commit.committer.name === job.data.username) {
-          console.log(commit.commit);
-          commitMessages.push(commit.commit.message);
+          ranker.calcSpelling(commit.commit.message, item.language, function (error, reply) {
+            if(error) {
+              return callback(error);
+            }
+            commitMessages.push({
+              message: commit.commit.message,
+              spelling: reply
+            });
+            return callbk();
+          });
+        } else {
+          return callbk();
         }
-      }
-      callback();
+      }, function (error) {
+        if(error) {
+          return callback(error);
+        }
+        return callback();
+      });
     });
   }, function (error) {
     if(error) {
-      return callback(error);
+      return cb(error);
     }
     return cb(null, commitMessages);
   });
 }
 
-function _calculateRanking (messages, callback) {
+function _calculateRanking (job, messages, callback) {
   var rankings = [];
   for (var i = 0; i < messages.length; i++) {
+    job.progress(i, messages.length);
     var message = messages[i];
-    console.log('Message: ')
-    console.log(message);
     rankings.push({
-      badwords: ranker.calcBadWords(message)
+      badwords: ranker.calcBadWords(message.message),
+      grammar: {
+        capitalization: ranker.calcCapitalization(message.message),
+        punctuation: ranker.calcPunctuation(message.message),
+        spelling: message.spelling
+      },
+      syntax: 0.0
     });
   }
   console.log('Rankings: ');
@@ -75,19 +96,25 @@ function _calculateRanking (messages, callback) {
   console.log(rankings.length);
   var total = {
     badwords: 0.0,
-    grammar: 0.0,
+    grammar: {
+      capitalization: 0.0,
+      punctuation: 0.0,
+      spelling: 0.0
+    },
     syntax: 0.0
   };
   for (var i = 0; i < rankings.length; i++) {
+    job.progress(i, rankings.length);
     var rank = rankings[i];
-    console.log('Current rank before: ' + total.badwords);
-    console.log(((1 / rankings.length) * rank.badwords));
     total.badwords = parseFloat(total.badwords) + parseFloat((1 / rankings.length) * rank.badwords);
-    console.log('Current rank after: ' + total.badwords);
+    total.grammar = {
+      capitalization: parseFloat(total.grammar.capitalization || 0.0) + parseFloat((1 / rankings.length) * (rank.grammar.capitalization)),
+      punctuation: parseFloat(total.grammar.punctuation || 0.0) + parseFloat((1 / rankings.length) * (rank.grammar.punctuation)),
+      spelling: parseFloat(total.grammar.spelling || 0.0) + parseFloat((1 / rankings.length) * (rank.grammar.spelling))
+    };
   }
-  console.log('total: ');
-  console.log(total);
-  return callback(null, total);
+  var percentage = (total.badwords + total.grammar.capitalization + total.grammar.punctuation + total.grammar.spelling + total.syntax) * 100;
+  return callback(null, {rankings: total, percentage: percentage});
 }
 
 exports.gather = function () {
@@ -98,23 +125,32 @@ exports.gather = function () {
     });
     _getRepos(function (error, repos) {
       if(error) {
+        console.log(error);
         return done(new Error(error));
       }
       _getCommitMessages(job, repos, function (error, messages) {
         if(error) {
+          console.log(error);
           return done(new Error(error));
         }
         console.log('Messages:');
         console.log(JSON.stringify(messages));
-        _calculateRanking(messages, function (error, rankings) {
+        _calculateRanking(job, messages, function (error, results) {
           if(error) {
+            console.log(error);
             return done(new Error(error));
           }
           var usersRef = ref.child('users');
+          var rankRef = ref.child('ranks');
           var username = job['data']['username'];
           var userRank = {};
-          userRank[username] = rankings
+          userRank[username] = results.rankings;
           usersRef.set(userRank);
+          var userPercent = {};
+          userPercent[username] = {};
+          userPercent[username]['username'] = username;
+          userPercent[username]['percentage'] = results.percentage;
+          rankRef.set(userPercent);
           done();
         });
       });

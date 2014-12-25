@@ -6,7 +6,10 @@ var jobs = kue.createQueue();
 var gatherer = require('./gatherer');
 var GitHubApi = require("github");
 var github = new GitHubApi({
-    version: "3.0.0"
+    version: "3.0.0",
+    headers: {
+      'User-Agent': 'Gitmas-Server/v0.1'
+    }
 });
 
 // Take auth token and call github for user object

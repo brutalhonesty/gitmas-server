@@ -21,9 +21,12 @@
     "method-override": "~1.0.0",
     "moment": "^2.8.4",
     "morgan": "~1.0.0",
+    "request": "^2.51.0",
     "serve-favicon": "~2.0.1",
+    "socket.io": "^1.2.1",
     "teacher": "git+https://github.com/brutalhonesty/teacher",
-    "validator": "^3.24.0"
+    "validator": "^3.24.0",
+    "yamljs": "^0.2.1"
   },
   "devDependencies": {
     "grunt": "~0.4.4",

@@ -2,6 +2,9 @@
 
 var validator = require('validator');
 var teacher = require('teacher');
+var config = require('../../../config/environment');
+var Firebase = require('firebase');
+var ref = new Firebase(config.firebase.url);
 
 // Weight for bad words is 50%
 // For each commit message we determine a rank and then take the average.
@@ -35,10 +38,61 @@ exports.calcBadWords = function (message) {
   return (badWordAmount / wordCount) * weight;
 };
 
-exports.isCapitalized = function (str) {
+exports.calcCapitalization = function (message) {
+  var weight = 0.03;
+  if(_isCapitalized(message)) {
+    return 0.0;
+  }
+  return weight;
+};
+
+exports.calcPunctuation = function (message) {
+  var weight = 0.03;
+  if(_hasPunctuation(message)) {
+    return 0.0;
+  }
+  return weight;
+};
+
+exports.calcSpelling = function (message, language, callback) {
+  var weight = 0.24;
+  language = language.replace('#', 'Sharp');
+  _getIgnoredList(language, function (error, ignored) {
+    teacher.check({
+      text: message,
+      custom: ignored
+    }, function (error, resp) {
+      if(error) {
+        return callback(error);
+      }
+      if(!resp) {
+        return callback(null, weight);
+      }
+      var score = (resp.length / message.length) * weight;
+      return callback(null, score);
+    });
+  });
+};
+
+var _getIgnoredList = function (language, callback) {
+  var spellRef = ref.child('misspellings');
+  spellRef.once('value', function (data) {
+    return callback(null, data[language]);
+  }, function (error) {
+    return callback(error);
+  });
+};
+
+var _isCapitalized = function (str) {
   var firstChar = str.charAt(0);
   if(firstChar === firstChar.toUpperCase()) {
     return true;
   }
   return false;
+};
+
+var _hasPunctuation = function (str) {
+  var lastChar = str.charAt(str.length - 1);
+  var punctRegex = new RegExp(/[.|?|!]/);
+  return punctRegex.test(lastChar);
 };
