@@ -34,18 +34,21 @@ function _getCommitMessages (job, repos, cb) {
   var commitMessages = [];
   var count = 0;
   async.eachLimit(repos, 10, function(item, callback) {
+    // TODO Iterate over all pages
     github.repos.getCommits({
       user: job.data.username,
-      repo: item.name
+      repo: item.name,
+      page: 1,
+      per_page: 100
     }, function (error, commitData) {
       if(error) {
         return cb(error);
       }
       count++;
-      console.log('Called!');
+      console.log('Extracting commits for repo ' + item.name);
       job.log('Extracting commits for repo %s', item.name);
       job.progress(count, repos.length);
-      async.eachLimit(commitData, 10, function (commit, callbk) {
+      async.eachLimit(commitData, 20, function (commit, callbk) {
         if(commit.commit.committer.name === job.data.username) {
           ranker.calcSpelling(commit.commit.message, item.language, function (error, reply) {
             if(error) {
@@ -90,10 +93,6 @@ function _calculateRanking (job, messages, callback) {
       syntax: 0.0
     });
   }
-  console.log('Rankings: ');
-  console.log(rankings);
-  console.log('Rankings length: ');
-  console.log(rankings.length);
   var total = {
     badwords: 0.0,
     grammar: {
@@ -133,8 +132,6 @@ exports.gather = function () {
           console.log(error);
           return done(new Error(error));
         }
-        console.log('Messages:');
-        console.log(JSON.stringify(messages));
         _calculateRanking(job, messages, function (error, results) {
           if(error) {
             console.log(error);

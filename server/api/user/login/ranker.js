@@ -5,6 +5,60 @@ var teacher = require('teacher');
 var config = require('../../../config/environment');
 var Firebase = require('firebase');
 var ref = new Firebase(config.firebase.url);
+var ignoreList = [];
+var spellRef = ref.child('misspellings');
+spellRef.once('value', function (data) {
+  ignoreList = data.val();
+}, function (error) {
+  console.log(error);
+});
+
+var _sortProperties = function(obj, isNumericSort) {
+    isNumericSort = isNumericSort || false; // by default text sort
+    var sortable=[];
+    for(var key in obj) {
+      if(obj.hasOwnProperty(key)) {
+        sortable.push([key, obj[key]]);
+      }
+    }
+    if(isNumericSort) {
+      sortable.sort(function(a, b) {
+          return b[1]-a[1];
+      });
+    }
+    else {
+      sortable.sort(function(a, b) {
+          var x=a[1].toLowerCase();
+          var y=b[1].toLowerCase();
+          return x < y ? -1 : x > y ? 1 : 0;
+      });
+    }
+    // array in format [ [ key1, val1 ], [ key2, val2 ], ... ]
+    var newObj = {};
+    for (var i = 0; i < sortable.length; i++) {
+      var obj = sortable[i];
+      newObj[obj[0]] = obj[1];
+    }
+    return newObj;
+};
+
+var _getIgnoredList = function (language, callback) {
+  return callback(null, Object.keys(_sortProperties(ignoreList[language], true)).slice(0, 21));
+};
+
+var _isCapitalized = function (str) {
+  var firstChar = str.charAt(0);
+  if(firstChar === firstChar.toUpperCase()) {
+    return true;
+  }
+  return false;
+};
+
+var _hasPunctuation = function (str) {
+  var lastChar = str.charAt(str.length - 1);
+  var punctRegex = new RegExp(/[.|?|!]/);
+  return punctRegex.test(lastChar);
+};
 
 // Weight for bad words is 50%
 // For each commit message we determine a rank and then take the average.
@@ -58,6 +112,9 @@ exports.calcSpelling = function (message, language, callback) {
   var weight = 0.24;
   language = language.replace('#', 'Sharp');
   _getIgnoredList(language, function (error, ignored) {
+    if(error) {
+      return callback(error);
+    }
     teacher.check({
       text: message,
       custom: ignored
@@ -72,27 +129,4 @@ exports.calcSpelling = function (message, language, callback) {
       return callback(null, score);
     });
   });
-};
-
-var _getIgnoredList = function (language, callback) {
-  var spellRef = ref.child('misspellings');
-  spellRef.once('value', function (data) {
-    return callback(null, data[language]);
-  }, function (error) {
-    return callback(error);
-  });
-};
-
-var _isCapitalized = function (str) {
-  var firstChar = str.charAt(0);
-  if(firstChar === firstChar.toUpperCase()) {
-    return true;
-  }
-  return false;
-};
-
-var _hasPunctuation = function (str) {
-  var lastChar = str.charAt(str.length - 1);
-  var punctRegex = new RegExp(/[.|?|!]/);
-  return punctRegex.test(lastChar);
 };
