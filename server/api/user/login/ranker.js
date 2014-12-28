@@ -60,6 +60,10 @@ var _hasPunctuation = function (str) {
   return punctRegex.test(lastChar);
 };
 
+var _hasNewline = function(str) {
+  return str.indexOf('\n') !== -1;
+};
+
 // Weight for bad words is 50%
 // For each commit message we determine a rank and then take the average.
 exports.calcBadWords = function (message) {
@@ -129,4 +133,40 @@ exports.calcSpelling = function (message, language, callback) {
       return callback(null, score);
     });
   });
+};
+
+exports.calcSyntax = function (message) {
+  var weight = 0.2;
+  var summary = message.slice(0, 50);
+  if(summary.indexOf('\n') !== -1) {
+    summary = message.slice(0, message.indexOf('\n'));
+    message = message.slice(message.indexOf('\n'));
+  }
+  if(summary.length <= 50 && message.indexOf('\n') === -1) {
+    console.log('Done due to summary only.');
+    return 0.0;
+  }
+  if(message.charAt(0) === '\n' && message.length > 0) {
+    while(message.length !== 0) {
+      while(message.charAt(0) === '\n') {
+        message = message.slice(1);
+      }
+      if(message.indexOf('\n') > 72) {
+        console.log('Invalid detailed text area on line below:');
+        console.log(message.slice(0, message.indexOf('\n')));
+        return weight;
+      }
+      while(message.indexOf('\n') >= 1 && message.indexOf('\n') <= 72) {
+        message = message.slice(message.indexOf('\n') + 1);
+      }
+      if(message.indexOf('\n') === -1) {
+        console.log('Done due to finished detail parsing');
+        return 0.0;
+      }
+    }
+  } else {
+    console.log('Invalid char after summary.');
+    console.log(message);
+    return weight;
+  }
 };

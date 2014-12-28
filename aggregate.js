@@ -7,7 +7,6 @@ var request = require('request');
 var _ = require('lodash');
 var github = new GithubApi({
   version: '3.0.0',
-  debug: true,
   headers: {
     'User-Agent': 'Gitmas-Aggregator/v0.1'
   }
